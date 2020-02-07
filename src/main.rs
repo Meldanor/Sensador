@@ -2,10 +2,10 @@
 extern crate rouille;
 
 fn main() {
-    println!("Now listening on localhost:8000");
+    println!("Now listening on 0.0.0.0:8000");
 
     // The `start_server` starts listening forever on the given address.
-    rouille::start_server("localhost:8000", move |request| {
+    rouille::start_server("0.0.0.0:8000", move |request| {
         // The closure passed to `start_server` will be called once for each client request. It
         // will be called multiple times concurrently when there are multiple clients.
 
