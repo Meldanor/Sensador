@@ -1,0 +1,6 @@
+version: '3'
+services:
+  rpi0:
+    image: messense/rust-musl-cross:arm-musleabihf
+    volumes:
+      - .:/home/rust/src
