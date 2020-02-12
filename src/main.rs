@@ -1,5 +1,5 @@
-//#[macro_use]
-//extern crate rouille;
+#[macro_use]
+extern crate rouille;
 
 use std::{thread, time};
 use std::error::Error;
@@ -135,9 +135,25 @@ fn refine_humidity(t_fine: f64, dig_h1: u8, dig_h2: i16, dig_h3: u8, dig_h4: i16
     humidity.min(100.0).max(0.0)
 }
 
+fn sample_prometheus_metrics(i2c: &I2c) -> Result<String, Box<dyn Error>> {
+    let vals = read_data(i2c)?;
+    // there must be a better way ...
+    return Ok(format!("# HELP sensador_temperature Temperature of the sensor in °C
+# TYPE sensador_temperature gauge
+sensador_temperature {}
+# HELP sensador_pressure Pressure of the sensor in hPa
+# TYPE sensador_pressure gauge
+sensador_pressure {}
+# HELP sensador_humidity Humidity of the sensor in %
+# TYPE sensador_humidity gauge
+sensador_humidity {}", vals[0], vals[1], vals[2]
+    ));
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut i2c = I2c::with_bus(1)?;
     i2c.set_slave_address(ADDRESS_BME_280)?;
+    let i2c = i2c;
     let info = read_id(&i2c)?;
     println!("Chip information: {}", info);
 
@@ -145,37 +161,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Temperature: {} C", vals[0]);
     println!("Pressure: {:.4} hPa", vals[1]);
     println!("Humidity: {:.2} %", vals[2]);
-    return Ok(());
-//    println!("Now listening on 0.0.0.0:8000");
+    println!("Now listening on 0.0.0.0:8000");
 
-//    // The `start_server` starts listening forever on the given address.
-//    rouille::start_server("0.0.0.0:8000", move |request| {
-//        // The closure passed to `start_server` will be called once for each client request. It
-//        // will be called multiple times concurrently when there are multiple clients.
-//
-//        // Here starts the real handler for the request.
-//        //
-//        // The `router!` macro is very similar to a `match` expression in core Rust. The macro
-//        // takes the request as parameter and will jump to the first block that matches the
-//        // request.
-//        //
-//        // Each of the possible blocks builds a `Response` object. Just like most things in Rust,
-//        // the `router!` macro is an expression whose value is the `Response` built by the block
-//        // that was called. Since `router!` is the last piece of code of this closure, the
-//        // `Response` is then passed back to the `start_server` function and sent to the client.
-//        router!(request,
-//            (GET) (/) => {
-//                rouille::Response::text("hello world")
-//            },
-//
-//            (GET) (/metrics) => {
-//                rouille::Response::text("There will be metrics")
-//            },
-//            // The code block is called if none of the other blocks matches the request.
-//            // We return an empty response with a 404 status code.
-//            _ => rouille::Response::empty_404()
-//        )
-//    });
+    rouille::start_server("0.0.0.0:8000", move |request| {
+        router!(request,
+
+            (GET) (/metrics) => {
+                let mut i2c = I2c::with_bus(1).unwrap();
+                i2c.set_slave_address(ADDRESS_BME_280).unwrap();
+                let metrics = sample_prometheus_metrics(&i2c).unwrap();
+                rouille::Response::text(metrics)
+            },
+            _ => rouille::Response::empty_404()
+        )
+    });
 }
 
 
